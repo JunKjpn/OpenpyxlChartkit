@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openpyxl-chartkit"
+version = "0.1.0"
+description = "Declarative Excel chart creation with openpyxl"
+requires-python = ">=3.10"
+dependencies = ["openpyxl>=3.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
