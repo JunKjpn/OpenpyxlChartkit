@@ -1,5 +1,6 @@
 .idea/
 .venv/
 outputs/
+backup/
 __pycache__/
 *.py[cod]

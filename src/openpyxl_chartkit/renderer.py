@@ -3,6 +3,7 @@ from __future__ import annotations
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference, ScatterChart, Series
 from .specs import AxisSpec, ChartSpec, SeriesSpec
+from .selectors import SeriesRange, resolve_series_ranges
 from .table import Table
 
 
@@ -16,14 +17,24 @@ class ChartRenderer:
 
         required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
         table.require_columns(*required_columns)
-        self._require_contiguous_rows(table)
 
         chart = self._make_chart(spec)
-        x_values = self._reference(source, table, spec.x)
 
         for series_spec in spec.series:
-            y_values = self._reference(source, table, series_spec.y)
-            self._add_series(chart, spec.chart_type, x_values, y_values, series_spec)
+            for series_range in resolve_series_ranges(table, series_spec):
+                x_values = self._reference(source, table, spec.x, series_range)
+                y_values = self._reference(source, table, series_spec.y, series_range)
+                self._add_series(
+                    chart,
+                    spec.chart_type,
+                    x_values,
+                    y_values,
+                    series_spec,
+                    series_range.title,
+                )
+
+        if any(series.grouping is not None for series in spec.series):
+            chart.legend.position = "b"
 
         chart.title = spec.title_template or None
         first_y_axis = spec.series[0].y
@@ -50,18 +61,6 @@ class ChartRenderer:
         return workbook[name] if name in workbook.sheetnames else workbook.create_sheet(name)
 
     @staticmethod
-    def _require_contiguous_rows(table: Table) -> None:
-        if not table.rows:
-            raise ValueError(f"Sheet '{table.sheet_name}' contains no data rows.")
-        row_numbers = [row.excel_row for row in table.rows]
-        expected = list(range(row_numbers[0], row_numbers[-1] + 1))
-        if row_numbers != expected:
-            raise ValueError(
-                "The minimal renderer requires contiguous data rows. "
-                "Filtering and non-contiguous data will be supported by selectors."
-            )
-
-    @staticmethod
     def _make_chart(spec: ChartSpec):
         if spec.chart_type == "scatter":
             return ScatterChart()
@@ -70,23 +69,35 @@ class ChartRenderer:
         raise ValueError(f"Unsupported chart type: {spec.chart_type}")
 
     @staticmethod
-    def _reference(worksheet, table: Table, axis: AxisSpec) -> Reference:
+    def _reference(
+        worksheet,
+        table: Table,
+        axis: AxisSpec,
+        series_range: SeriesRange,
+    ) -> Reference:
         column_number = table.columns.index(axis.column) + 1
         return Reference(
             worksheet,
             min_col=column_number,
-            min_row=table.rows[0].excel_row,
-            max_row=table.rows[-1].excel_row,
+            min_row=series_range.start_row,
+            max_row=series_range.end_row,
         )
 
     @staticmethod
-    def _add_series(chart, chart_type: str, x_values: Reference, y_values: Reference, spec: SeriesSpec) -> None:
+    def _add_series(
+        chart,
+        chart_type: str,
+        x_values: Reference,
+        y_values: Reference,
+        spec: SeriesSpec,
+        title: str,
+    ) -> None:
         if chart_type == "bar":
             chart.add_data(y_values, titles_from_data=False)
             chart.set_categories(x_values)
             return
 
-        series = Series(y_values, x_values, title=spec.title or spec.y.title or spec.y.column)
+        series = Series(y_values, x_values, title=title)
         if spec.style == "line":
             series.graphicalProperties.line.width = 1.5 * 12700
         elif spec.style == "circle":
