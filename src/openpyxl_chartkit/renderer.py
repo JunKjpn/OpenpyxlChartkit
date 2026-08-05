@@ -12,46 +12,6 @@ from .layout import ChartLayoutEngine
 class ChartRenderer:
     """Render the minimal ChartSpec subset into an existing workbook."""
 
-    def render(self, workbook: Workbook, spec: ChartSpec) -> None:
-        source = self._get_sheet(workbook, spec.source_sheet)
-        output = self._get_or_create_sheet(workbook, spec.output_sheet)
-        table = Table.from_worksheet(source)
-
-        required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
-        table.require_columns(*required_columns)
-
-        chart = self._make_chart(spec)
-
-        for series_spec in spec.series:
-            for series_range in resolve_series_ranges(table, series_spec):
-                x_values = self._reference(source, table, spec.x, series_range)
-                y_values = self._reference(source, table, series_spec.y, series_range)
-                self._add_series(
-                    chart,
-                    spec.chart_type,
-                    x_values,
-                    y_values,
-                    series_spec,
-                    series_range.title,
-                )
-
-        if any(series.grouping is not None for series in spec.series):
-            chart.legend.position = "b"
-
-        chart.title = spec.title_template or None
-        first_y_axis = spec.series[0].y
-        # openpyxl serializes scatter-chart axes in the opposite order from the
-        # public attribute names.  Assign titles/settings by their visible axes.
-        chart.y_axis.title = spec.x.title or spec.x.column
-        chart.x_axis.title = first_y_axis.title or first_y_axis.column
-        chart.width = spec.layout.width
-        chart.height = spec.layout.height
-        self._apply_axis_settings(chart.y_axis, spec.x)
-        self._apply_axis_settings(chart.x_axis, first_y_axis)
-
-        layout_engine = ChartLayoutEngine(output, spec.layout)
-        output.add_chart(chart, layout_engine.anchor(0, 0))
-
     @staticmethod
     def _get_sheet(workbook: Workbook, name: str):
         try:
@@ -64,7 +24,7 @@ class ChartRenderer:
         return workbook[name] if name in workbook.sheetnames else workbook.create_sheet(name)
 
     @staticmethod
-    def _make_chart(spec: ChartSpec):
+    def _make_chart(spec: ChartSpec) -> ScatterChart | BarChart:
         if spec.chart_type == "scatter":
             return ScatterChart()
         if spec.chart_type == "bar":
@@ -107,3 +67,38 @@ class ChartRenderer:
             axis.scaling.min = spec.minimum
         if spec.maximum is not None:
             axis.scaling.max = spec.maximum
+
+    def _build_chart(self, source, table: Table, spec: ChartSpec) -> ScatterChart | BarChart:
+        chart = self._make_chart(spec)
+
+        for series_spec in spec.series:
+            for series_range in resolve_series_ranges(table, series_spec):
+                x_values = self._reference(source, table, spec.x, series_range)
+                y_values = self._reference(source, table, series_spec.y, series_range)
+                self._add_series(chart, spec.chart_type, x_values, y_values, series_spec, series_range.title)
+
+        if any(series.grouping is not None for series in spec.series):
+            chart.legend.position = "b"
+
+        chart.title = spec.title_template or None
+        first_y_axis = spec.series[0].y
+        # openpyxl serializes scatter-chart axes in the opposite order from the public attribute names.
+        # Assign titles/settings by their visible axes.
+        chart.y_axis.title = spec.x.title or spec.x.column
+        chart.x_axis.title = first_y_axis.title or first_y_axis.column
+        chart.width = spec.layout.width
+        chart.height = spec.layout.height
+        self._apply_axis_settings(chart.y_axis, spec.x)
+        self._apply_axis_settings(chart.x_axis, first_y_axis)
+        return chart
+
+    def render(self, workbook: Workbook, spec: ChartSpec) -> None:
+        source = self._get_sheet(workbook=workbook, name=spec.source_sheet)
+        output = self._get_or_create_sheet(workbook=workbook, name=spec.output_sheet)
+        table = Table.from_worksheet(worksheet=source)
+
+        required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
+        table.require_columns(*required_columns)
+        chart = self._build_chart(source=source, table=table, spec=spec)
+        layout_engine = ChartLayoutEngine(output, spec.layout)
+        output.add_chart(chart, layout_engine.anchor(0, 0))
