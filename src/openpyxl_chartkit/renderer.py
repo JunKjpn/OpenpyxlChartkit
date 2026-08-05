@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference, ScatterChart, Series
+
 from .specs import AxisSpec, ChartSpec, SeriesSpec
 from .selectors import SeriesRange, resolve_series_ranges
 from .table import Table
+from .layout import ChartLayoutEngine
 
 
 class ChartRenderer:
@@ -47,7 +49,8 @@ class ChartRenderer:
         self._apply_axis_settings(chart.y_axis, spec.x)
         self._apply_axis_settings(chart.x_axis, first_y_axis)
 
-        output.add_chart(chart, self._anchor(output, spec))
+        layout_engine = ChartLayoutEngine(output, spec.layout)
+        output.add_chart(chart, layout_engine.anchor(0, 0))
 
     @staticmethod
     def _get_sheet(workbook: Workbook, name: str):
@@ -69,12 +72,7 @@ class ChartRenderer:
         raise ValueError(f"Unsupported chart type: {spec.chart_type}")
 
     @staticmethod
-    def _reference(
-        worksheet,
-        table: Table,
-        axis: AxisSpec,
-        series_range: SeriesRange,
-    ) -> Reference:
+    def _reference(worksheet, table: Table, axis: AxisSpec, series_range: SeriesRange) -> Reference:
         column_number = table.columns.index(axis.column) + 1
         return Reference(
             worksheet,
@@ -85,12 +83,7 @@ class ChartRenderer:
 
     @staticmethod
     def _add_series(
-        chart,
-        chart_type: str,
-        x_values: Reference,
-        y_values: Reference,
-        spec: SeriesSpec,
-        title: str,
+            chart, chart_type: str, x_values: Reference, y_values: Reference, spec: SeriesSpec, title: str,
     ) -> None:
         if chart_type == "bar":
             chart.add_data(y_values, titles_from_data=False)
@@ -114,9 +107,3 @@ class ChartRenderer:
             axis.scaling.min = spec.minimum
         if spec.maximum is not None:
             axis.scaling.max = spec.maximum
-
-    @staticmethod
-    def _anchor(output, spec: ChartSpec) -> str:
-        if spec.layout.placement == "right_up":
-            return f"{output.cell(row=2, column=output.max_column + 2).coordinate}"
-        return f"{output.cell(row=output.max_row + 2, column=1).coordinate}"
