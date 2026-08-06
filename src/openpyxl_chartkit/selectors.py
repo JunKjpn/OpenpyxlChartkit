@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
-from .specs import ChartSpec, SeriesSpec
+from .specs import ChartSpec, GroupingSpec, SeriesSpec
 from .table import DataRow, Table
 
 
@@ -23,36 +23,20 @@ class ChartRange:
     table: Table
 
 
+
 def resolve_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
-    if spec.horizontal_grouping is None and spec.vertical_grouping is None:
-        return (
-            ChartRange(
-                title=spec.title_template or "",
-                table=table,
-            ),
-        )
+    if spec.horizontal_grouping is not None:
+        return _resolve_horizontal_chart_ranges(table, spec)
 
-    grouping = spec.horizontal_grouping
-    if grouping is None:
-        raise NotImplementedError("Vertical grouping is not supported yet.")
+    if spec.vertical_grouping is not None:
+        return _resolve_vertical_chart_ranges(table, spec)
 
-    table.require_columns(*grouping.columns)
-    ranges: list[ChartRange] = []
-    seen_keys: set[tuple[Any, ...]] = set()
-    for key, rows in groupby(table.rows, key=lambda row: _group_key(row, grouping.columns)):
-        grouped_rows = tuple(rows)
-        if key in seen_keys:
-            raise ValueError(f"Group {key!r} in sheet '{table.sheet_name}' is not contiguous.")
-        seen_keys.add(key)
-        _require_contiguous_rows(grouped_rows, table.sheet_name, key)
-        title = f"{spec.title_template or "Chart"} ({_group_title(grouping.columns, key)})"
-        ranges.append(
-            ChartRange(
-                title=title,
-                table=Table(sheet_name=table.sheet_name, columns=table.columns, rows=grouped_rows),
-            )
-        )
-    return tuple(ranges)
+    return (
+        ChartRange(
+            title=spec.title_template or "",
+            table=table,
+        ),
+    )
 
 def resolve_series_ranges(table: Table, spec: SeriesSpec) -> tuple[SeriesRange, ...]:
     """Resolve one SeriesSpec into one or more contiguous worksheet ranges."""
@@ -109,3 +93,39 @@ def _require_contiguous_rows(rows: tuple[DataRow, ...], sheet_name: str, key: tu
 
 def _group_title(columns: tuple[str, ...], key: tuple[Any, ...]) -> str:
     return ", ".join(f"{column}={value}" for column, value in zip(columns, key))
+
+
+def _resolve_grouped_chart_ranges(table: Table, grouping: GroupingSpec, title_template: str | None) -> tuple[ChartRange, ...]:
+    table.require_columns(*grouping.columns)
+    ranges: list[ChartRange] = []
+    seen_keys: set[tuple[Any, ...]] = set()
+    for key, rows in groupby(table.rows, key=lambda row: _group_key(row, grouping.columns)):
+        grouped_rows = tuple(rows)
+        if key in seen_keys:
+            raise ValueError(f"Group {key!r} in sheet '{table.sheet_name}' is not contiguous.")
+        seen_keys.add(key)
+        _require_contiguous_rows(grouped_rows, table.sheet_name, key)
+        title = f"{title_template or 'Chart'} ({_group_title(grouping.columns, key)})"
+        ranges.append(
+            ChartRange(
+                title=title,
+                table=Table(sheet_name=table.sheet_name, columns=table.columns, rows=grouped_rows),
+            )
+        )
+    return tuple(ranges)
+
+
+def _resolve_horizontal_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
+    grouping = spec.horizontal_grouping
+    if grouping is None:
+        raise ValueError("horizontal_grouping is required.")
+
+    return _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)
+
+
+def _resolve_vertical_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
+    grouping = spec.vertical_grouping
+    if grouping is None:
+        raise ValueError("vertical_grouping is required.")
+
+    return _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)

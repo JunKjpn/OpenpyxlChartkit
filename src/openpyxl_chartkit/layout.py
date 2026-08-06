@@ -4,7 +4,7 @@ from openpyxl.utils import get_column_letter
 
 class ChartLayoutEngine:
     _WIDTH_TO_COLUMNS = 0.525
-    _HEIGHT_TO_ROWS = 1.667
+    _HEIGHT_TO_ROWS = 2.1
     DEFAULT_TOP_ROW = 2
     DEFAULT_LEFT_COLUMN = 1
     DEFAULT_MARGIN = 2

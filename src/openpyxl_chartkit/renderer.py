@@ -20,9 +20,21 @@ class ChartRenderer:
         required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
         table.require_columns(*required_columns)
         layout_engine = ChartLayoutEngine(output, spec.layout)
-        for column_index, chart_range in enumerate(resolve_chart_ranges(table, spec)):
-            chart = self._build_chart(source=source, chart_range=chart_range, spec=spec)
-            output.add_chart(chart, layout_engine.anchor(0, column_index))
+
+        chart_ranges = resolve_chart_ranges(table, spec)
+        if spec.horizontal_grouping is not None:
+            for column_index, chart_range in enumerate(chart_ranges):
+                chart = self._build_chart(source, chart_range, spec)
+                output.add_chart(chart, layout_engine.anchor(0, column_index))
+
+        elif spec.vertical_grouping is not None:
+            for row_index, chart_range in enumerate(chart_ranges):
+                chart = self._build_chart(source, chart_range, spec)
+                output.add_chart(chart, layout_engine.anchor(row_index, 0))
+
+        else:
+            chart = self._build_chart(source, chart_ranges[0], spec)
+            output.add_chart(chart, layout_engine.anchor(0, 0))
 
     @staticmethod
     def _get_sheet(workbook: Workbook, name: str):
