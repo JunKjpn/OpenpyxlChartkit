@@ -56,7 +56,7 @@ ChartRenderer().render(workbook, spec)
 # インストール
 
 ```bash
-git clone https://github.com/<your-account>/OpenpyxlChartKit.git
+git clone https://github.com/JunKjpn/OpenpyxlChartKit.git
 
 cd OpenpyxlChartKit
 
