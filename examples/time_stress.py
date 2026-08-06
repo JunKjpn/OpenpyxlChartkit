@@ -30,7 +30,7 @@ def build_time_stress_sample(input_path: Path, output_path: Path) -> None:
         ),
         horizontal_grouping=GroupingSpec(columns=("SampleNum",)),
         vertical_grouping=GroupingSpec(columns=("Cycle",)),
-        layout=LayoutSpec(width=20, height=15, placement="right_up"),
+        layout=LayoutSpec(width=20, height=12, placement="right_up"),
         title_template="Time-Stress Chart",
     )
 

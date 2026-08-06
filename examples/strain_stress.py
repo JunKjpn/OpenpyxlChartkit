@@ -28,8 +28,8 @@ def build_strain_stress_sample(input_path: Path, output_path: Path) -> None:
                 grouping=GroupingSpec(columns=("DataNum",))
             ),
         ),
-        vertical_grouping=GroupingSpec(columns=("SampleNum",)),
-        layout=LayoutSpec(width=20, height=15, placement="right_up"),
+        horizontal_grouping=GroupingSpec(columns=("SampleNum",)),
+        layout=LayoutSpec(width=20, height=12, placement="right_up"),
         title_template="Strain-Stress Chart",
     )
 

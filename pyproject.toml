@@ -6,8 +6,35 @@ build-backend = "setuptools.build_meta"
 name = "openpyxl-chartkit"
 version = "0.1.0"
 description = "Declarative Excel chart creation with openpyxl"
+readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["openpyxl>=3.1"]
+license = { text = "MIT" }
+
+authors = [
+    { name = "Jun Kubota" }
+]
+
+dependencies = [
+    "openpyxl>=3.1",
+]
+
+keywords = [
+    "openpyxl",
+    "excel",
+    "chart",
+    "python",
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+homepage = "https://github.com/JunKjpn/OpenpyxlChartKit"
+repository = "https://github.com/JunKjpn/OpenpyxlChartKit"
 
 [tool.setuptools.packages.find]
 where = ["src"]
