@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import groupby
 from typing import Any
 
@@ -21,20 +21,30 @@ class SeriesRange:
 class ChartRange:
     title: str
     table: Table
+    row: int = 0
+    column: int = 0
 
 
 
 def resolve_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
-    if spec.horizontal_grouping is not None:
+    horizontal = spec.horizontal_grouping
+    vertical = spec.vertical_grouping
+
+    if horizontal is not None and vertical is not None:
+        return _resolve_two_dimensional_chart_ranges(table, spec)
+
+    if horizontal is not None:
         return _resolve_horizontal_chart_ranges(table, spec)
 
-    if spec.vertical_grouping is not None:
+    if vertical is not None:
         return _resolve_vertical_chart_ranges(table, spec)
 
     return (
         ChartRange(
             title=spec.title_template or "",
             table=table,
+            row=0,
+            column=0,
         ),
     )
 
@@ -105,7 +115,11 @@ def _resolve_grouped_chart_ranges(table: Table, grouping: GroupingSpec, title_te
             raise ValueError(f"Group {key!r} in sheet '{table.sheet_name}' is not contiguous.")
         seen_keys.add(key)
         _require_contiguous_rows(grouped_rows, table.sheet_name, key)
-        title = f"{title_template or 'Chart'} ({_group_title(grouping.columns, key)})"
+        group_title = _group_title(grouping.columns, key)
+        if title_template:
+            title = f"{title_template} ({group_title})"
+        else:
+            title = group_title
         ranges.append(
             ChartRange(
                 title=title,
@@ -120,7 +134,12 @@ def _resolve_horizontal_chart_ranges(table: Table, spec: ChartSpec) -> tuple[Cha
     if grouping is None:
         raise ValueError("horizontal_grouping is required.")
 
-    return _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)
+    return tuple(
+        replace(chart_range, column=column)
+        for column, chart_range in enumerate(
+            _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)
+        )
+    )
 
 
 def _resolve_vertical_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
@@ -128,4 +147,28 @@ def _resolve_vertical_chart_ranges(table: Table, spec: ChartSpec) -> tuple[Chart
     if grouping is None:
         raise ValueError("vertical_grouping is required.")
 
-    return _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)
+    return tuple(
+        replace(chart_range, row=row)
+        for row, chart_range in enumerate(
+            _resolve_grouped_chart_ranges(table=table, grouping=grouping, title_template=spec.title_template)
+        )
+    )
+
+
+def _resolve_two_dimensional_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
+    vertical_groups = _resolve_grouped_chart_ranges(table=table, grouping=spec.vertical_grouping, title_template=None)
+    ranges = []
+
+    for row, vertical_group in enumerate(vertical_groups):
+
+        horizontal_groups = _resolve_grouped_chart_ranges(
+            table=vertical_group.table, grouping=spec.horizontal_grouping, title_template=spec.title_template,
+        )
+
+        for column, chart_range in enumerate(horizontal_groups):
+            base = spec.title_template or "Chart"
+            ranges.append(
+                replace(chart_range, row=row, column=column, title=chart_range.title[:-1] + f" - {vertical_group.title})")
+            )
+
+    return tuple(ranges)
