@@ -4,13 +4,25 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, Reference, ScatterChart, Series
 
 from .specs import AxisSpec, ChartSpec, SeriesSpec
-from .selectors import SeriesRange, resolve_series_ranges
+from .selectors import ChartRange, SeriesRange, resolve_chart_ranges, resolve_series_ranges
 from .table import Table
 from .layout import ChartLayoutEngine
 
 
 class ChartRenderer:
     """Render the minimal ChartSpec subset into an existing workbook."""
+
+    def render(self, workbook: Workbook, spec: ChartSpec) -> None:
+        source = self._get_sheet(workbook=workbook, name=spec.source_sheet)
+        output = self._get_or_create_sheet(workbook=workbook, name=spec.output_sheet)
+        table = Table.from_worksheet(worksheet=source)
+
+        required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
+        table.require_columns(*required_columns)
+        layout_engine = ChartLayoutEngine(output, spec.layout)
+        for column_index, chart_range in enumerate(resolve_chart_ranges(table, spec)):
+            chart = self._build_chart(source=source, chart_range=chart_range, spec=spec)
+            output.add_chart(chart, layout_engine.anchor(0, column_index))
 
     @staticmethod
     def _get_sheet(workbook: Workbook, name: str):
@@ -68,8 +80,9 @@ class ChartRenderer:
         if spec.maximum is not None:
             axis.scaling.max = spec.maximum
 
-    def _build_chart(self, source, table: Table, spec: ChartSpec) -> ScatterChart | BarChart:
+    def _build_chart(self, source, chart_range: ChartRange, spec: ChartSpec) -> ScatterChart | BarChart:
         chart = self._make_chart(spec)
+        table = chart_range.table
 
         for series_spec in spec.series:
             for series_range in resolve_series_ranges(table, series_spec):
@@ -80,7 +93,7 @@ class ChartRenderer:
         if any(series.grouping is not None for series in spec.series):
             chart.legend.position = "b"
 
-        chart.title = spec.title_template or None
+        chart.title = chart_range.title or None
         first_y_axis = spec.series[0].y
         # openpyxl serializes scatter-chart axes in the opposite order from the public attribute names.
         # Assign titles/settings by their visible axes.
@@ -91,14 +104,3 @@ class ChartRenderer:
         self._apply_axis_settings(chart.y_axis, spec.x)
         self._apply_axis_settings(chart.x_axis, first_y_axis)
         return chart
-
-    def render(self, workbook: Workbook, spec: ChartSpec) -> None:
-        source = self._get_sheet(workbook=workbook, name=spec.source_sheet)
-        output = self._get_or_create_sheet(workbook=workbook, name=spec.output_sheet)
-        table = Table.from_worksheet(worksheet=source)
-
-        required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
-        table.require_columns(*required_columns)
-        chart = self._build_chart(source=source, table=table, spec=spec)
-        layout_engine = ChartLayoutEngine(output, spec.layout)
-        output.add_chart(chart, layout_engine.anchor(0, 0))

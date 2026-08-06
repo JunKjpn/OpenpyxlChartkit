@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
-from .specs import SeriesSpec
+from .specs import ChartSpec, SeriesSpec
 from .table import DataRow, Table
 
 
@@ -16,6 +16,43 @@ class SeriesRange:
     start_row: int
     end_row: int
 
+
+@dataclass(frozen=True)
+class ChartRange:
+    title: str
+    table: Table
+
+
+def resolve_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...]:
+    if spec.horizontal_grouping is None and spec.vertical_grouping is None:
+        return (
+            ChartRange(
+                title=spec.title_template or "",
+                table=table,
+            ),
+        )
+
+    grouping = spec.horizontal_grouping
+    if grouping is None:
+        raise NotImplementedError("Vertical grouping is not supported yet.")
+
+    table.require_columns(*grouping.columns)
+    ranges: list[ChartRange] = []
+    seen_keys: set[tuple[Any, ...]] = set()
+    for key, rows in groupby(table.rows, key=lambda row: _group_key(row, grouping.columns)):
+        grouped_rows = tuple(rows)
+        if key in seen_keys:
+            raise ValueError(f"Group {key!r} in sheet '{table.sheet_name}' is not contiguous.")
+        seen_keys.add(key)
+        _require_contiguous_rows(grouped_rows, table.sheet_name, key)
+        title = f"{spec.title_template or "Chart"} ({_group_title(grouping.columns, key)})"
+        ranges.append(
+            ChartRange(
+                title=title,
+                table=Table(sheet_name=table.sheet_name, columns=table.columns, rows=grouped_rows),
+            )
+        )
+    return tuple(ranges)
 
 def resolve_series_ranges(table: Table, spec: SeriesSpec) -> tuple[SeriesRange, ...]:
     """Resolve one SeriesSpec into one or more contiguous worksheet ranges."""
@@ -51,7 +88,7 @@ def resolve_series_ranges(table: Table, spec: SeriesSpec) -> tuple[SeriesRange, 
 
         ranges.append(
             SeriesRange(
-                title=_series_title(spec, grouping.columns, key),
+                title=_group_title(columns=grouping.columns, key=key),
                 start_row=grouped_rows[0].excel_row,
                 end_row=grouped_rows[-1].excel_row,
             )
@@ -64,23 +101,11 @@ def _group_key(row: DataRow, columns: tuple[str, ...]) -> tuple[Any, ...]:
     return tuple(row.values[column] for column in columns)
 
 
-def _require_contiguous_rows(
-    rows: tuple[DataRow, ...],
-    sheet_name: str,
-    key: tuple[Any, ...],
-) -> None:
+def _require_contiguous_rows(rows: tuple[DataRow, ...], sheet_name: str, key: tuple[Any, ...]) -> None:
     row_numbers = [row.excel_row for row in rows]
     if row_numbers != list(range(row_numbers[0], row_numbers[-1] + 1)):
-        raise ValueError(
-            f"Group {key!r} in sheet '{sheet_name}' contains blank or non-contiguous rows."
-        )
+        raise ValueError(f"Group {key!r} in sheet '{sheet_name}' contains blank or non-contiguous rows.")
 
 
-def _series_title(
-    spec: SeriesSpec,
-    columns: tuple[str, ...],
-    key: tuple[Any, ...],
-) -> str:
-    return ", ".join(
-        f"{column}={value}" for column, value in zip(columns, key)
-    )
+def _group_title(columns: tuple[str, ...], key: tuple[Any, ...]) -> str:
+    return ", ".join(f"{column}={value}" for column, value in zip(columns, key))

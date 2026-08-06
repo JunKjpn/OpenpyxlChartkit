@@ -25,9 +25,10 @@ def build_ss_sample(input_path: Path, output_path: Path) -> None:
                 y=AxisSpec(column="Stress MPa", title="Stress (MPa)"),
                 title="Stress MPa",
                 style="line",
-                grouping=GroupingSpec(columns=("SampleNum", "DataNum"))
+                grouping=GroupingSpec(columns=("DataNum",))
             ),
         ),
+        horizontal_grouping=GroupingSpec(columns=("SampleNum",)),
         layout=LayoutSpec(width=20, height=15, placement="right_up"),
         title_template="Stress-Strain Chart",
     )
