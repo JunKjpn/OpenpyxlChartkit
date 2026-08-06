@@ -103,12 +103,11 @@ class ChartRenderer:
 
         chart.title = chart_range.title or None
         first_y_axis = spec.series[0].y
-        # openpyxl serializes scatter-chart axes in the opposite order from the public attribute names.
-        # Assign titles/settings by their visible axes.
-        chart.y_axis.title = spec.x.title or spec.x.column
-        chart.x_axis.title = first_y_axis.title or first_y_axis.column
         chart.width = spec.layout.width
         chart.height = spec.layout.height
-        self._apply_axis_settings(chart.y_axis, spec.x)
-        self._apply_axis_settings(chart.x_axis, first_y_axis)
+        chart.x_axis.title = spec.x.title or spec.x.column
+        chart.y_axis.title = first_y_axis.title or first_y_axis.column
+
+        self._apply_axis_settings(chart.x_axis, spec.x)
+        self._apply_axis_settings(chart.y_axis, first_y_axis)
         return chart
