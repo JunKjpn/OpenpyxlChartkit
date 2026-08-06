@@ -12,14 +12,14 @@ from openpyxl_chartkit import (
 )
 
 
-def build_ss_sample(input_path: Path, output_path: Path) -> None:
+def build_time_stress_sample(input_path: Path, output_path: Path) -> None:
     workbook = load_workbook(input_path)
 
     spec = ChartSpec(
-        source_sheet="mean-data",
-        output_sheet="mean-data",
+        source_sheet="data",
+        output_sheet="data",
         chart_type="scatter",
-        x=AxisSpec(column="Strain %", title="Strain (%)"),
+        x=AxisSpec(column="Time ms", title="Time (ms)"),
         series=(
             SeriesSpec(
                 y=AxisSpec(column="Stress MPa", title="Stress (MPa)"),
@@ -29,9 +29,9 @@ def build_ss_sample(input_path: Path, output_path: Path) -> None:
             ),
         ),
         horizontal_grouping=GroupingSpec(columns=("SampleNum",)),
-        vertical_grouping=GroupingSpec(columns=("Info",)),
+        vertical_grouping=GroupingSpec(columns=("Cycle",)),
         layout=LayoutSpec(width=20, height=15, placement="right_up"),
-        title_template="Stress-Strain Chart",
+        title_template="Time-Stress Chart",
     )
 
     ChartRenderer().render(workbook, spec)
@@ -40,7 +40,7 @@ def build_ss_sample(input_path: Path, output_path: Path) -> None:
 
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
-    input_path = project_root / "samples" / "ss_sample_data.xlsx"
-    output_path = project_root / "outputs" / "ss_sample_chart.xlsx"
+    input_path = project_root / "samples" / "time_stress_sample_data.xlsx"
+    output_path = project_root / "outputs" / "time_stress_sample_chart.xlsx"
     output_path.parent.mkdir(exist_ok=True)
-    build_ss_sample(input_path=input_path, output_path=output_path)
+    build_time_stress_sample(input_path=input_path, output_path=output_path)
