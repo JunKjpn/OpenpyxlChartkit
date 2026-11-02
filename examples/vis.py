@@ -37,6 +37,7 @@ def build_vis_sample(input_path: Path, output_path: Path) -> None:
         x=AxisSpec(
             column="Strain %",
             title="Strain (%)",
+            log_scale=True,
         ),
         series=(
             SeriesSpec(

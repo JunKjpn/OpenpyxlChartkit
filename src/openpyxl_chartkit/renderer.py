@@ -125,4 +125,9 @@ class ChartRenderer:
 
         self._apply_axis_settings(chart.x_axis, spec.x)
         self._apply_axis_settings(chart.y_axis, first_y_axis)
+
+        # Position the Y-axis at the minimum of the X-axis.
+        if spec.x.log_scale:
+            chart.y_axis.crosses = "min"
+
         return chart
