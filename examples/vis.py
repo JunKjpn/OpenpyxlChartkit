@@ -56,6 +56,7 @@ def build_vis_sample(input_path: Path, output_path: Path) -> None:
             width=20,
             height=12,
         ),
+        y_axis_title_from="Metric",
         title_template="VIS Chart",
     )
 

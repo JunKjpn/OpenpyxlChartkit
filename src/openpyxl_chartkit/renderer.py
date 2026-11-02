@@ -19,6 +19,9 @@ class ChartRenderer:
         table = Table.from_worksheet(worksheet=source)
 
         required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
+        if spec.y_axis_title_from is not None:
+            required_columns.append(spec.y_axis_title_from)
+
         table.require_columns(*required_columns)
 
         chart_ranges = resolve_chart_ranges(table, spec)
@@ -103,6 +106,35 @@ class ChartRenderer:
         if spec.maximum is not None:
             axis.scaling.max = spec.maximum
 
+    @staticmethod
+    def _resolve_y_axis_title(chart_range: ChartRange, spec: ChartSpec, default_title: str) -> str:
+        """Resolve the Y-axis title from a grouping column or use its default."""
+        column = spec.y_axis_title_from
+
+        if column is None:
+            return default_title
+
+        values = {
+            row.values[column]
+            for row in chart_range.table.rows
+        }
+
+        if len(values) != 1:
+            raise ValueError(
+                f"Cannot determine Y-axis title from column '{column}'. "
+                f"Expected exactly one distinct value, found: {values}"
+            )
+
+        value = next(iter(values))
+
+        if value is None:
+            raise ValueError(
+                f"Cannot determine Y-axis title from column '{column}': "
+                "the value is empty."
+            )
+
+        return str(value)
+
     def _build_chart(self, source, chart_range: ChartRange, spec: ChartSpec) -> ScatterChart | BarChart:
         chart = self._make_chart(spec)
         table = chart_range.table
@@ -121,7 +153,8 @@ class ChartRenderer:
         chart.width = spec.layout.width
         chart.height = spec.layout.height
         chart.x_axis.title = spec.x.title or spec.x.column
-        chart.y_axis.title = first_y_axis.title or first_y_axis.column
+        default_y_title = first_y_axis.title or first_y_axis.column
+        chart.y_axis.title = self._resolve_y_axis_title(chart_range, spec, default_y_title)
 
         self._apply_axis_settings(chart.x_axis, spec.x)
         self._apply_axis_settings(chart.y_axis, first_y_axis)

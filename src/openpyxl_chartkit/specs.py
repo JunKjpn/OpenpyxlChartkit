@@ -59,3 +59,4 @@ class ChartSpec:
     vertical_grouping: GroupingSpec | None = None
     layout: LayoutSpec = field(default_factory=LayoutSpec)
     title_template: str | None = None
+    y_axis_title_from: str | None = None

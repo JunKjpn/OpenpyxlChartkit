@@ -356,3 +356,60 @@ def test_render_non_contiguous_groups_raise_error():
 
     with pytest.raises(ValueError, match="not contiguous"):
         ChartRenderer().render(workbook, spec)
+
+def test_render_uses_grouping_value_as_y_axis_title():
+    workbook = create_workbook_with_data(
+        headers=["metric", "x", "y"],
+        rows=[
+            ["G' MPa", 1, 10],
+            ["G' MPa", 2, 20],
+            ['G" MPa', 1, 30],
+            ['G" MPa', 2, 40],
+            ["tan-delta", 1, 50],
+            ["tan-delta", 2, 60],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("x"),
+        series=(SeriesSpec(AxisSpec("y")),),
+        horizontal_grouping=GroupingSpec(("metric",)),
+        y_axis_title_from="metric",
+    )
+
+    ChartRenderer().render(workbook, spec)
+
+    charts = workbook["chart"]._charts
+
+    assert len(charts) == 3
+
+    titles = [
+        chart.y_axis.title.tx.rich.p[0].r[0].t
+        for chart in charts
+    ]
+
+    assert titles == ["G' MPa", 'G" MPa', "tan-delta"]
+
+def test_render_raises_error_when_y_axis_title_value_is_not_unique():
+    workbook = create_workbook_with_data(
+        headers=["metric", "x", "y"],
+        rows=[
+            ["G' MPa", 1, 10],
+            ['G" MPa', 2, 20],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("x"),
+        series=(SeriesSpec(AxisSpec("y")),),
+        y_axis_title_from="metric",
+    )
+
+    with pytest.raises(ValueError, match="exactly one distinct value"):
+        ChartRenderer().render(workbook, spec)
