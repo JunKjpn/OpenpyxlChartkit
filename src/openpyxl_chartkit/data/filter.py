@@ -4,6 +4,8 @@ from typing import Any
 
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ._utils import _read_headers
+
 
 def filter_rows(
     source: Worksheet,
@@ -32,29 +34,7 @@ def filter_rows(
         raise ValueError("Output worksheet cannot be the source worksheet.")
 
     # Read and validate headers.
-    header_values = [cell.value for cell in source[1]]
-
-    # Ignore trailing empty cells.
-    while header_values and header_values[-1] is None:
-        header_values.pop()
-
-    if not header_values:
-        raise ValueError(f"Worksheet '{source.title}' has no header row.")
-
-    if any(
-        not isinstance(header, str) or not header.strip()
-        for header in header_values
-    ):
-        raise ValueError(
-            f"Worksheet '{source.title}' has an empty or non-text header."
-        )
-
-    if len(header_values) != len(set(header_values)):
-        raise ValueError(
-            f"Worksheet '{source.title}' has duplicate headers."
-        )
-
-    headers = tuple(header_values)
+    headers = _read_headers(source)
 
     if column not in headers:
         raise ValueError(
