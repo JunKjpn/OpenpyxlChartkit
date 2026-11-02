@@ -1,3 +1,4 @@
+import pytest
 from openpyxl import Workbook, load_workbook
 
 from openpyxl_chartkit import AxisSpec, ChartRenderer, ChartSpec, GroupingSpec, SeriesSpec, ChartLayoutSession
@@ -120,3 +121,238 @@ def test_render_multiple_specs_without_overlap():
     assert len(charts) == 2
     assert charts[0].anchor == "A1"
     assert charts[1].anchor == "A20"
+
+
+def test_render_horizontal_grouping_with_multiple_specs():
+    workbook = create_workbook_with_data(
+        headers=["year", "sales", "profit", "region"],
+        rows=[
+            [2023, 100, 20, "East"],
+            [2024, 120, 25, "East"],
+            [2023, 80, 15, "West"],
+            [2024, 90, 18, "West"],
+        ],
+    )
+
+    grouped_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        horizontal_grouping=GroupingSpec(("region",)),
+        title_template="Sales by region",
+    )
+
+    second_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("profit")),),
+        title_template="Profit",
+    )
+
+    renderer = ChartRenderer()
+    session = ChartLayoutSession(vertical_gap=2)
+
+    renderer.render(workbook, grouped_spec, session=session)
+    renderer.render(workbook, second_spec, session=session)
+
+    charts = workbook["chart"]._charts
+
+    assert len(charts) == 3
+
+    # Horizontal grouping
+    assert charts[0].anchor == "A1"
+    assert charts[1].anchor == "G1"
+
+    # The next ChartSpec is placed below the previous group.
+    assert charts[2].anchor == "A20"
+
+
+def test_render_vertical_grouping_with_multiple_specs():
+    workbook = create_workbook_with_data(
+        headers=["year", "sales", "profit", "region"],
+        rows=[
+            [2023, 100, 20, "East"],
+            [2024, 120, 25, "East"],
+            [2023, 80, 15, "West"],
+            [2024, 90, 18, "West"],
+        ],
+    )
+
+    grouped_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        vertical_grouping=GroupingSpec(("region",)),
+        title_template="Sales by region",
+    )
+
+    second_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("profit")),),
+        title_template="Profit",
+    )
+
+    renderer = ChartRenderer()
+    session = ChartLayoutSession(vertical_gap=2)
+
+    renderer.render(workbook, grouped_spec, session=session)
+    renderer.render(workbook, second_spec, session=session)
+
+    charts = workbook["chart"]._charts
+
+    assert len(charts) == 3
+
+    # Vertical grouping
+    assert charts[0].anchor == "A1"
+    assert charts[1].anchor == "A18"
+
+    # The next ChartSpec is placed below the previous group.
+    assert charts[2].anchor == "A37"
+
+
+def test_render_two_dimensional_grouping_with_multiple_specs():
+    workbook = create_workbook_with_data(
+        headers=["year", "sales", "region", "product"],
+        rows=[
+            [2023, 100, "East", "A"],
+            [2024, 120, "East", "A"],
+            [2023, 80, "East", "B"],
+            [2024, 90, "East", "B"],
+            [2023, 110, "West", "A"],
+            [2024, 130, "West", "A"],
+            [2023, 70, "West", "B"],
+            [2024, 85, "West", "B"],
+        ],
+    )
+
+    grouped_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        horizontal_grouping=GroupingSpec(("product",)),
+        vertical_grouping=GroupingSpec(("region",)),
+        title_template="Sales",
+    )
+
+    second_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        title_template="Total sales",
+    )
+
+    renderer = ChartRenderer()
+    session = ChartLayoutSession(vertical_gap=2)
+
+    renderer.render(workbook, grouped_spec, session=session)
+    renderer.render(workbook, second_spec, session=session)
+
+    charts = workbook["chart"]._charts
+
+    assert len(charts) == 5
+
+    # Two-dimensional grouping
+    assert charts[0].anchor == "A1"
+    assert charts[1].anchor == "G1"
+    assert charts[2].anchor == "A18"
+    assert charts[3].anchor == "G18"
+
+    # The next ChartSpec is below the entire 2D group.
+    assert charts[4].anchor == "A37"
+
+
+def test_render_two_dimensional_grouping_with_uneven_groups():
+    workbook = create_workbook_with_data(
+        headers=["year", "sales", "region", "product"],
+        rows=[
+            [2023, 100, "East", "A"],
+            [2024, 120, "East", "A"],
+            [2023, 80, "East", "B"],
+            [2024, 90, "East", "B"],
+            [2023, 110, "West", "A"],
+            [2024, 130, "West", "A"],
+            [2023, 70, "West", "B"],
+            [2024, 85, "West", "B"],
+            [2023, 60, "West", "C"],
+            [2024, 75, "West", "C"],
+        ],
+    )
+
+    grouped_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        horizontal_grouping=GroupingSpec(("product",)),
+        vertical_grouping=GroupingSpec(("region",)),
+    )
+
+    second_spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+    )
+
+    renderer = ChartRenderer()
+    session = ChartLayoutSession(vertical_gap=2)
+
+    renderer.render(workbook, grouped_spec, session=session)
+    renderer.render(workbook, second_spec, session=session)
+
+    charts = workbook["chart"]._charts
+
+    assert len(charts) == 6
+
+    # East: 2 charts
+    assert charts[0].anchor == "A1"
+    assert charts[1].anchor == "G1"
+
+    # West: 3 charts
+    assert charts[2].anchor == "A18"
+    assert charts[3].anchor == "G18"
+    assert charts[4].anchor == "M18"
+
+    # The next ChartSpec starts below the entire grid.
+    assert charts[5].anchor == "A37"
+
+
+def test_render_non_contiguous_groups_raise_error():
+    workbook = create_workbook_with_data(
+        headers=["year", "sales", "region"],
+        rows=[
+            [2023, 100, "East"],
+            [2024, 120, "East"],
+            [2023, 80, "West"],
+            [2024, 90, "West"],
+            [2023, 110, "East"],
+            [2024, 130, "East"],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("year"),
+        series=(SeriesSpec(AxisSpec("sales")),),
+        horizontal_grouping=GroupingSpec(("region",)),
+    )
+
+    with pytest.raises(ValueError, match="not contiguous"):
+        ChartRenderer().render(workbook, spec)
