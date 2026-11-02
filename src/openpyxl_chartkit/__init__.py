@@ -3,6 +3,7 @@
 from .renderer import ChartRenderer
 from .session import ChartLayoutSession
 from .specs import AxisSpec, ChartSpec, GroupingSpec, LayoutSpec, SeriesSpec
+from .data import filter_rows, wide_to_long
 
 __all__ = [
     "AxisSpec",
@@ -12,4 +13,6 @@ __all__ = [
     "LayoutSpec",
     "SeriesSpec",
     "ChartLayoutSession",
+    "filter_rows",
+    "wide_to_long",
 ]
