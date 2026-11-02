@@ -3,13 +3,34 @@ from __future__ import annotations
 from openpyxl.worksheet.worksheet import Worksheet
 
 
+def _build_sort_key(
+    row: list,
+    sort_by: tuple[str, ...],
+    output_headers: tuple[str, ...],
+    value_order: dict[str, int],
+    variable_name: str,
+) -> tuple:
+    keys = []
+
+    for name in sort_by:
+        index = output_headers.index(name)
+
+        if name == variable_name:
+            keys.append(value_order[row[index]])
+        else:
+            keys.append((row[index] is None, row[index]))
+
+    return tuple(keys)
+
+
 def wide_to_long(
-    source: Worksheet,
-    id_columns: tuple[str, ...],
-    value_columns: tuple[str, ...],
-    variable_name: str = "Metric",
-    value_name: str = "Value",
-    output_sheet_name: str = "chart_data",
+        source: Worksheet,
+        id_columns: tuple[str, ...],
+        value_columns: tuple[str, ...],
+        variable_name: str = "Metric",
+        value_name: str = "Value",
+        output_sheet_name: str = "chart_data",
+        sort_by: tuple[str, ...] = (),
 ) -> Worksheet:
     """Convert wide-format worksheet data into long-format data.
 
@@ -101,6 +122,18 @@ def wide_to_long(
             "with identifier columns."
         )
 
+    if len(sort_by) != len(set(sort_by)):
+        raise ValueError("sort_by contains duplicate column names.")
+
+    missing_sort_columns = [
+        name for name in sort_by
+        if name not in output_headers
+    ]
+    if missing_sort_columns:
+        raise ValueError(
+            f"Sort columns not found in output: {missing_sort_columns}"
+        )
+
     # Create output worksheet.
     workbook = source.parent
 
@@ -111,10 +144,12 @@ def wide_to_long(
     output.append(output_headers)
 
     # Convert wide-format rows into long-format rows.
+    output_rows = []
+
     for row in source.iter_rows(
-        min_row=2,
-        max_col=len(headers),
-        values_only=True,
+            min_row=2,
+            max_col=len(headers),
+            values_only=True,
     ):
         identifiers = tuple(
             row[column_index[name]]
@@ -127,10 +162,29 @@ def wide_to_long(
             if value is None:
                 continue
 
-            output.append([
+            output_rows.append([
                 *identifiers,
                 column,
                 value,
             ])
+
+    if sort_by:
+        value_order = {
+            name: index
+            for index, name in enumerate(value_columns)
+        }
+
+        output_rows.sort(
+            key=lambda row: _build_sort_key(
+                row=row,
+                sort_by=sort_by,
+                output_headers=output_headers,
+                value_order=value_order,
+                variable_name=variable_name,
+            )
+        )
+
+    for row in output_rows:
+        output.append(row)
 
     return output

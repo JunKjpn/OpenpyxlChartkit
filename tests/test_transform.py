@@ -149,3 +149,21 @@ def test_wide_to_long_rejects_source_as_output_sheet(workbook_with_data):
             value_columns=("G' MPa",),
             output_sheet_name="data",
         )
+
+
+def test_wide_to_long_sorts_by_specified_columns(workbook_with_data):
+    _, source = workbook_with_data
+
+    result = wide_to_long(
+        source=source,
+        id_columns=("SampleNum", "Strain %"),
+        value_columns=("G' MPa", 'G" MPa', "tan-delta"),
+        sort_by=("SampleNum", "Metric", "Strain %"),
+    )
+
+    rows = list(result.iter_rows(min_row=2, values_only=True))
+
+    assert rows[:2] == [
+        (1, 0.1, "G' MPa", 10.0),
+        (1, 0.2, "G' MPa", 20.0),
+    ]
