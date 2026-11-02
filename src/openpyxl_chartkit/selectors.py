@@ -48,6 +48,7 @@ def resolve_chart_ranges(table: Table, spec: ChartSpec) -> tuple[ChartRange, ...
         ),
     )
 
+
 def resolve_series_ranges(table: Table, spec: SeriesSpec) -> tuple[SeriesRange, ...]:
     """Resolve one SeriesSpec into one or more contiguous worksheet ranges."""
     if not table.rows:

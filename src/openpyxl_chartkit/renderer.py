@@ -7,28 +7,42 @@ from .specs import AxisSpec, ChartSpec, SeriesSpec
 from .selectors import ChartRange, SeriesRange, resolve_chart_ranges, resolve_series_ranges
 from .table import Table
 from .layout import ChartLayoutEngine
+from .session import ChartLayoutSession
 
 
 class ChartRenderer:
     """Render the minimal ChartSpec subset into an existing workbook."""
 
-    def render(self, workbook: Workbook, spec: ChartSpec) -> None:
+    def render(self, workbook: Workbook, spec: ChartSpec, session: ChartLayoutSession | None = None) -> None:
         source = self._get_sheet(workbook=workbook, name=spec.source_sheet)
         output = self._get_or_create_sheet(workbook=workbook, name=spec.output_sheet)
         table = Table.from_worksheet(worksheet=source)
 
         required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
         table.require_columns(*required_columns)
-        layout_engine = ChartLayoutEngine(output, spec.layout)
 
-        for chart_range in resolve_chart_ranges(table, spec):
+        chart_ranges = resolve_chart_ranges(table, spec)
+        layout_engine = ChartLayoutEngine(spec.layout)
+
+        if session is not None:
+            grid_rows = max(chart_range.row for chart_range in chart_ranges) + 1
+            origin_row, origin_column = session.allocate(
+                rows=grid_rows,
+                row_step=layout_engine.row_step,
+            )
+        else:
+            origin_row, origin_column = 1, 1
+
+        for chart_range in chart_ranges:
             chart = self._build_chart(source, chart_range, spec)
 
             output.add_chart(
                 chart,
                 layout_engine.anchor(
-                    chart_range.row,
-                    chart_range.column,
+                    grid_row=chart_range.row,
+                    grid_column=chart_range.column,
+                    origin_row=origin_row,
+                    origin_column=origin_column,
                 ),
             )
 

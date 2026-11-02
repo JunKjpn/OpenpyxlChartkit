@@ -5,7 +5,6 @@ from typing import Literal
 ChartType = Literal["scatter", "bar"]
 SeriesStyle = Literal["line", "circle"]
 SplitAxis = Literal["row", "column"]
-Placement = Literal["right_up", "left_down"]
 
 
 @dataclass(frozen=True)
@@ -43,7 +42,6 @@ class LayoutSpec:
 
     width: float = 10
     height: float = 8
-    placement: Placement = "left_down"
     horizontal_interval: int | None = None
     vertical_interval: int | None = None
 
