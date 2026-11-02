@@ -29,6 +29,7 @@ class ChartRenderer:
             origin_row, origin_column = session.allocate(
                 rows=grid_rows,
                 row_step=layout_engine.row_step,
+                chart_height_rows=layout_engine.chart_height_rows,
             )
         else:
             origin_row, origin_column = 1, 1

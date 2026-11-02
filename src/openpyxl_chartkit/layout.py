@@ -21,3 +21,7 @@ class ChartLayoutEngine:
     @property
     def row_step(self) -> int:
         return self._row_step
+
+    @property
+    def chart_height_rows(self) -> int:
+        return math.ceil(self._layout.height * self._HEIGHT_TO_ROWS)
