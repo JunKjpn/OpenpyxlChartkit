@@ -10,11 +10,12 @@ from .table import DataRow, Table
 
 @dataclass(frozen=True)
 class SeriesRange:
-    """A contiguous Excel row range rendered as one chart series."""
+    """An Excel data range rendered as one chart series."""
 
     title: str
     start_row: int
     end_row: int
+    y_column: str | None = None
 
 
 @dataclass(frozen=True)
@@ -62,6 +63,19 @@ def resolve_series_ranges(table: Table, spec: SeriesSpec) -> tuple[SeriesRange, 
                 start_row=table.rows[0].excel_row,
                 end_row=table.rows[-1].excel_row,
             ),
+        )
+
+    if grouping.source == "column":
+        table.require_columns(*grouping.columns)
+
+        return tuple(
+            SeriesRange(
+                title=column,
+                start_row=table.rows[0].excel_row,
+                end_row=table.rows[-1].excel_row,
+                y_column=column,
+            )
+            for column in grouping.columns
         )
 
     if grouping.source != "row":
