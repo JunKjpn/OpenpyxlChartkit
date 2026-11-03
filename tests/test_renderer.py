@@ -413,3 +413,142 @@ def test_render_raises_error_when_y_axis_title_value_is_not_unique():
 
     with pytest.raises(ValueError, match="exactly one distinct value"):
         ChartRenderer().render(workbook, spec)
+
+def test_render_scatter_chart_with_column_grouping():
+    workbook = create_workbook_with_data(
+        headers=["Strain", "Sample A", "Sample B", "Sample C"],
+        rows=[
+            [1, 10, 12, 15],
+            [2, 20, 22, 25],
+            [3, 30, 32, 35],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("Strain"),
+        series=(
+            SeriesSpec(
+                AxisSpec("Sample A"),
+                grouping=GroupingSpec(
+                    columns=("Sample A", "Sample B", "Sample C"),
+                    source="column",
+                ),
+            ),
+        ),
+    )
+
+    ChartRenderer().render(workbook, spec)
+
+    chart = workbook["chart"]._charts[0]
+
+    # Three series are generated.
+    assert len(chart.series) == 3
+
+    # Series titles correspond to column names.
+    assert [series.tx.v for series in chart.series] == [
+        "Sample A",
+        "Sample B",
+        "Sample C",
+    ]
+
+    # All series use the same X-axis range.
+    for series in chart.series:
+        assert series.xVal.numRef.f.endswith("$A$2:$A$4")
+
+    # Each series uses its corresponding Y-axis column.
+    assert chart.series[0].yVal.numRef.f.endswith("$B$2:$B$4")
+    assert chart.series[1].yVal.numRef.f.endswith("$C$2:$C$4")
+    assert chart.series[2].yVal.numRef.f.endswith("$D$2:$D$4")
+
+
+def test_render_column_grouping_raises_error_for_missing_column():
+    workbook = create_workbook_with_data(
+        headers=["Strain", "Sample A", "Sample B"],
+        rows=[
+            [1, 10, 12],
+            [2, 20, 22],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("Strain"),
+        series=(
+            SeriesSpec(
+                AxisSpec("Sample A"),
+                grouping=GroupingSpec(
+                    columns=("Sample A", "Sample C"),
+                    source="column",
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="missing columns"):
+        ChartRenderer().render(workbook, spec)
+
+
+def test_render_column_grouping_does_not_require_y_axis_column():
+    workbook = create_workbook_with_data(
+        headers=["Strain", "Sample A", "Sample B"],
+        rows=[
+            [1, 10, 12],
+            [2, 20, 22],
+            [3, 30, 32],
+        ],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("Strain"),
+        series=(
+            SeriesSpec(
+                AxisSpec("UnusedColumn"),
+                grouping=GroupingSpec(
+                    columns=("Sample A", "Sample B"),
+                    source="column",
+                ),
+            ),
+        ),
+    )
+
+    ChartRenderer().render(workbook, spec)
+
+    chart = workbook["chart"]._charts[0]
+
+    assert len(chart.series) == 2
+    assert chart.series[0].yVal.numRef.f.endswith("$B$2:$B$4")
+    assert chart.series[1].yVal.numRef.f.endswith("$C$2:$C$4")
+
+
+def test_render_column_grouping_raises_error_for_empty_data():
+    workbook = create_workbook_with_data(
+        headers=["Strain", "Sample A", "Sample B"],
+        rows=[],
+    )
+
+    spec = ChartSpec(
+        source_sheet="data",
+        output_sheet="chart",
+        chart_type="scatter",
+        x=AxisSpec("Strain"),
+        series=(
+            SeriesSpec(
+                AxisSpec("Sample A"),
+                grouping=GroupingSpec(
+                    columns=("Sample A", "Sample B"),
+                    source="column",
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="no data rows"):
+        ChartRenderer().render(workbook, spec)

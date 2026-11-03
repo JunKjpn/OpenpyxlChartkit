@@ -18,7 +18,18 @@ class ChartRenderer:
         output = self._get_or_create_sheet(workbook=workbook, name=spec.output_sheet)
         table = Table.from_worksheet(worksheet=source)
 
-        required_columns = [spec.x.column, *(series.y.column for series in spec.series)]
+        required_columns = [spec.x.column]
+
+        for series in spec.series:
+            if series.grouping is not None and series.grouping.source == "column":
+                required_columns.extend(series.grouping.columns)
+            else:
+                required_columns.append(series.y.column)
+
+        if spec.y_axis_title_from is not None:
+            required_columns.append(spec.y_axis_title_from)
+
+        table.require_columns(*required_columns)
         if spec.y_axis_title_from is not None:
             required_columns.append(spec.y_axis_title_from)
 
@@ -70,8 +81,21 @@ class ChartRenderer:
         raise ValueError(f"Unsupported chart type: {spec.chart_type}")
 
     @staticmethod
-    def _reference(worksheet, table: Table, axis: AxisSpec, series_range: SeriesRange) -> Reference:
-        column_number = table.columns.index(axis.column) + 1
+    def _reference(
+            worksheet,
+            table: Table,
+            axis: AxisSpec,
+            series_range: SeriesRange,
+            *,
+            is_y_axis: bool = False,
+    ) -> Reference:
+        column = (
+            series_range.y_column
+            if is_y_axis and series_range.y_column is not None
+            else axis.column
+        )
+        column_number = table.columns.index(column) + 1
+
         return Reference(
             worksheet,
             min_col=column_number,
@@ -142,7 +166,7 @@ class ChartRenderer:
         for series_spec in spec.series:
             for series_range in resolve_series_ranges(table, series_spec):
                 x_values = self._reference(source, table, spec.x, series_range)
-                y_values = self._reference(source, table, series_spec.y, series_range)
+                y_values = self._reference(source, table, series_spec.y, series_range, is_y_axis=True)
                 self._add_series(chart, spec.chart_type, x_values, y_values, series_spec, series_range.title)
 
         if any(series.grouping is not None for series in spec.series):
